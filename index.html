@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Check Timer</title>
+<meta name="theme-color" content="#f2f3f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="定检计时">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{padding-top:env(safe-area-inset-top, 0px);padding-bottom:env(safe-area-inset-bottom, 0px)}
+/* Layout: one column of aircraft cards, each with a severity stripe; sticky toolbar on top */
+:root{
+  --bg:#f2f3f6; --card:#ffffff; --text:#14161b; --muted:#6b7280; --line:#e4e6eb; --soft:#f6f7f9;
+  --accent:#1d5fd6; --on-accent:#ffffff; --btn:#eceef2; --scrim:rgba(10,12,16,.42); --toast:rgba(20,22,27,.92); --on-toast:#ffffff;
+  --g:#17914f; --g-bg:#e6f5ec;
+  --y:#a86a00; --y-bg:#fdf3dc; --y-bar:#f0a800;
+  --r:#cf2027; --r-bg:#fde8e8;
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1014; --card:#191c22; --text:#eceef2; --muted:#9aa1ad; --line:#2a2e36; --soft:#20242b;
+    --accent:#5d9bff; --on-accent:#0b1220; --btn:#262a32; --scrim:rgba(0,0,0,.6); --toast:rgba(236,238,242,.94); --on-toast:#14161b;
+    --g:#3ccf7f; --g-bg:#13301f; --y:#ffc53d; --y-bg:#3a2f12; --y-bar:#f0b400; --r:#ff5c61; --r-bg:#3d1416;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1014; --card:#191c22; --text:#eceef2; --muted:#9aa1ad; --line:#2a2e36; --soft:#20242b;
+  --accent:#5d9bff; --on-accent:#0b1220; --btn:#262a32; --scrim:rgba(0,0,0,.6); --toast:rgba(236,238,242,.94); --on-toast:#14161b;
+  --g:#3ccf7f; --g-bg:#13301f; --y:#ffc53d; --y-bg:#3a2f12; --y-bar:#f0b400; --r:#ff5c61; --r-bg:#3d1416;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font:16px/1.4 var(--font);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:0 28px;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--bg)}
+header{position:sticky;top:env(safe-area-inset-top, 0px);z-index:5;background:var(--bg);
+  padding-block:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:640px;margin:0 auto}
+main{max-width:640px;margin:0 auto}
+h1{font-size:21px;margin:0;white-space:nowrap}
+.hbtns{display:flex;gap:6px}
+button{font:inherit;font-size:15px;border:0;border-radius:10px;padding:9px 12px;background:var(--btn);color:var(--text);cursor:pointer;white-space:nowrap}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--on-accent)}
+button.danger{color:var(--r)}
+button.primary.danger{background:var(--r);color:var(--on-accent)}
+button.ghost{background:none;color:var(--accent);padding:8px 6px}
+input{font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--text);min-width:0}
+
+.card{position:relative;background:var(--card);border-radius:16px;padding:14px 14px 12px 18px;margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--bar)}
+.card.g{--bar:var(--g)} .card.y{--bar:var(--y-bar)} .card.r{--bar:var(--r)}
+.head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 14px;min-width:0}
+.reg{font-size:20px;font-weight:700;letter-spacing:.3px;word-break:break-all;min-width:0}
+.lv-g{color:var(--g);background:var(--g-bg)}
+.lv-y{color:var(--y);background:var(--y-bg)}
+.lv-r{color:var(--r);background:var(--r-bg)}
+
+button.rem{background:none;padding:2px 6px;margin:-2px -6px;border-radius:8px;font-size:26px;font-weight:700;line-height:1.1;
+  font-variant-numeric:tabular-nums;white-space:nowrap;text-decoration:underline dotted 1px;text-underline-offset:5px}
+button.rem:hover{background:var(--soft)}
+.rem .rl{font-size:14px;font-weight:600;margin-right:4px;opacity:.85}
+.txt-g{color:var(--g)} .txt-y{color:var(--y)} .txt-r{color:var(--r)}
+
+.entry{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.entry input[type=date]{flex:0 0 132px;width:132px;padding:9px 6px}
+.entry input.t{flex:0 0 104px;width:104px;text-align:center;font-variant-numeric:tabular-nums}
+
+/* Orders: one grid per card so names and remaining values line up in columns */
+.orders{display:grid;grid-template-columns:auto minmax(0,11em) minmax(7.5em,max-content) 1fr auto auto;
+  align-items:center;column-gap:10px;margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
+.order{display:contents}
+.order > *{padding-block:6px}
+.order .kind{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 5px;white-space:nowrap;justify-self:start}
+.order .name{min-width:0;font-size:15px;word-break:break-word}
+.pill{justify-self:start;font-size:14px;font-weight:600;padding:3px 9px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.order .ob{background:none;color:var(--accent);font-size:14px;padding:4px 4px}
+@media (max-width: 480px){
+  .orders{grid-template-columns:minmax(0,1fr) auto auto auto;column-gap:6px}
+  .order .kind,.order > span:empty{display:none}
+}
+.x{background:none;color:var(--muted);padding:4px 6px;font-size:18px;line-height:1}
+.note{max-width:640px;margin:18px auto 0;font-size:13px;color:var(--muted);text-align:center;line-height:1.5}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px}
+
+.empty{color:var(--muted);text-align:center;padding:48px 0}
+dialog{border:0;border-radius:16px;padding:18px;background:var(--card);color:var(--text);width:min(92vw,420px);max-height:85vh;overflow:auto}
+dialog::backdrop{background:var(--scrim)}
+dialog h2{font-size:18px;margin:0 0 6px}
+dialog label{display:block;font-size:14px;color:var(--muted);margin:12px 0 4px}
+dialog input,dialog textarea{width:100%}
+textarea{font:13px/1.4 ui-monospace,Menlo,monospace;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--text);height:140px}
+.seg{display:flex;background:var(--soft);border-radius:10px;padding:3px}
+.seg button{flex:1;background:none;padding:8px}
+.seg button.on{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.dbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.err{font-size:13px;color:var(--r);margin-top:8px;min-height:1em}
+.msg{white-space:pre-wrap;font-size:16px;line-height:1.5}
+.msg .warn{color:var(--r);font-weight:600}
+.msg input{display:block;width:100%;margin-top:8px;font-size:20px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.msg .hint{display:block}
+.rec{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px;font-variant-numeric:tabular-nums}
+.rec.old{opacity:.45}
+.rec .set{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);
+  background:var(--toast);color:var(--on-toast);padding:10px 16px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;white-space:nowrap}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>定检计时</h1>
+  <div class="hbtns">
+    <button id="btnCopy">一键复制</button>
+    <button id="btnBackup">备份</button>
+    <button class="primary" id="btnAdd" aria-label="添加飞机">＋</button>
+  </div>
+</header>
+<main id="list"></main>
+<p class="note">数据只保存在这台设备的浏览器里。清理浏览器数据或换手机之前，请先点右上角"备份"，把文本存好；到新设备上用"备份 → 恢复"导入。</p>
+<div class="toast" id="toast" role="status"></div>
+
+<dialog id="dlgMsg">
+  <h2 id="mTitle"></h2>
+  <div class="msg" id="mBody"></div>
+  <div class="err" id="mErr"></div>
+  <div class="dbtns">
+    <button id="mCancel">取消</button>
+    <button class="primary" id="mOk">确认</button>
+  </div>
+</dialog>
+
+<dialog id="dlgAc">
+  <h2 id="dlgAcTitle">添加飞机</h2>
+  <label for="fReg">机号（不用输入 B-）</label>
+  <input id="fReg" autocomplete="off" autocapitalize="characters" placeholder="如 10AA">
+  <div class="hint" id="fRegPreview"></div>
+  <label for="fRem">当前剩余进定检时间（只输数字，如 9545 → 95:45）</label>
+  <input id="fRem" class="tm" inputmode="numeric" pattern="[0-9]*" placeholder="100:00">
+  <div class="hint">新飞机默认 100:00。编辑时修改此项，会从现在起按新值计算。</div>
+  <div class="err" id="fErr"></div>
+  <div class="dbtns">
+    <button class="danger" id="fDel" hidden>删除飞机</button>
+    <button id="fCancel">取消</button>
+    <button class="primary" id="fSave">保存</button>
+  </div>
+</dialog>
+
+<dialog id="dlgOrder">
+  <h2 id="oTitle">添加指令单</h2>
+  <div class="hint" id="oFor"></div>
+  <label for="oName">指令单名称</label>
+  <input id="oName" autocomplete="off">
+  <label>类型</label>
+  <div class="seg" id="oSeg">
+    <button data-type="hours" class="on">按小时</button>
+    <button data-type="date">按日期</button>
+  </div>
+  <div id="oHoursBox">
+    <label for="oHours">剩余时间（只输数字，如 2500 → 25:00）</label>
+    <input id="oHours" class="tm" inputmode="numeric" pattern="[0-9]*" placeholder="25:00">
+    <div class="hint">之后每天录入的空中时间会同时从这里扣减。</div>
+  </div>
+  <div id="oDateBox" hidden>
+    <label for="oDate">到期日期</label>
+    <input id="oDate" type="date">
+  </div>
+  <div class="err" id="oErr"></div>
+  <div class="dbtns">
+    <button id="oCancel">取消</button>
+    <button class="primary" id="oSave">添加</button>
+  </div>
+</dialog>
+
+<dialog id="dlgHist">
+  <h2 id="hTitle">记录</h2>
+  <div class="hint">灰色为上次定检之前的记录。修改或删除飞行记录后，剩余时间会按新值重新计算。</div>
+  <div id="hList"></div>
+  <div class="dbtns"><button class="primary" id="hClose">关闭</button></div>
+</dialog>
+
+<dialog id="dlgBackup">
+  <h2 id="bTitle">备份 / 恢复</h2>
+  <div class="hint" id="bHint">复制下面的文本保存到备忘录。恢复时粘贴文本并点"恢复"，会覆盖本机当前数据。</div>
+  <textarea id="bText"></textarea>
+  <div class="err" id="bErr"></div>
+  <div class="dbtns">
+    <button id="bCopy">复制</button>
+    <button class="danger" id="bRestore">恢复</button>
+    <button class="primary" id="bClose">关闭</button>
+  </div>
+</dialog>
+
+<script>
+// LOGIC START
+
+var CHECK_MIN = 100 * 60;
+
+// "2:15" / "2.25" / "2" -> minutes; null if invalid or outside [minM, maxM]
+function parseDur(s, minM, maxM) {
+  s = String(s == null ? '' : s).trim().replace('：', ':');
+  if (!s) return null;
+  var m;
+  if (/^\d{1,4}:\d{1,2}$/.test(s)) {
+    var p = s.split(':').map(Number);
+    if (p[1] >= 60) return null;
+    m = p[0] * 60 + p[1];
+  } else if (/^\d*\.?\d+$/.test(s)) {
+    m = Math.round(parseFloat(s) * 60);
+  } else return null;
+  if (m < minM || m > maxM) return null;
+  return m;
+}
+
+function fmt(min) {
+  var a = Math.abs(min);
+  var s = Math.floor(a / 60) + ':' + String(a % 60).padStart(2, '0');
+  return min < 0 ? '-' + s : s;
+}
+
+function lastSetIndex(ac) {
+  var k = -1;
+  ac.events.forEach(function (e, i) { if (e.t === 'set') k = i; });
+  return k;
+}
+
+// Remaining to check = last 'set' value minus all flights after it
+function remaining(ac) {
+  var r = null;
+  ac.events.forEach(function (e) {
+    if (e.t === 'set') r = e.min;
+    else if (e.t === 'fly' && r !== null) r -= e.min;
+  });
+  return r;
+}
+
+// Sum of flights dated `day` since the last 'set'
+function dayAir(ac, day) {
+  var k = lastSetIndex(ac), s = 0;
+  ac.events.forEach(function (e, i) { if (i > k && e.t === 'fly' && e.date === day) s += e.min; });
+  return s;
+}
+
+function dayNum(ymd) {
+  var p = ymd.split('-').map(Number);
+  return Math.round(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
+}
+
+// Hours-type order: start value minus flights entered after the order was created
+function orderRemaining(ac, o, today) {
+  if (o.type === 'date') return dayNum(o.due) - dayNum(today);
+  var r = o.min;
+  ac.events.forEach(function (e) { if (e.t === 'fly' && e.ts > o.ts) r -= e.min; });
+  return r;
+}
+
+function levelHours(min) { return min <= 600 ? 'r' : (min <= 1800 ? 'y' : 'g'); }
+function levelDays(d) { return d <= 3 ? 'r' : (d <= 7 ? 'y' : 'g'); }
+function worst(levels) {
+  if (levels.indexOf('r') >= 0) return 'r';
+  if (levels.indexOf('y') >= 0) return 'y';
+  return 'g';
+}
+
+// Typing helper: keep digits only, last two digits are minutes. "215" -> "2:15", "5" -> "0:05"
+function fmtTyping(v) {
+  var d = String(v == null ? '' : v).replace(/\D/g, '').replace(/^0+/, '').slice(0, 5);
+  if (!d) return '';
+  d = d.padStart(3, '0');
+  return d.slice(0, -2) + ':' + d.slice(-2);
+}
+
+// Registration: user types "10AA" -> "B-10AA"; an existing "B-" prefix is kept
+function normReg(s) {
+  s = String(s == null ? '' : s).toUpperCase().replace(/\s+/g, '');
+  if (/^B-/.test(s)) s = s.slice(2);
+  s = s.replace(/^-+/, '');
+  return s ? 'B-' + s : '';
+}
+
+function copyText(aircraft, today) {
+  var p = today.split('-');
+  var lines = [p[1] + '/' + p[2] + ' 定检剩余'];
+  aircraft.forEach(function (ac) {
+    var r = remaining(ac);
+    lines.push(ac.reg + '  ' + (r < 0 ? '超限 ' + fmt(-r) : fmt(r)));
+  });
+  return lines.join('\n');
+}
+// LOGIC END
+
+var KEY = 'checktimer.v2';
+var state = { version: 2, aircraft: [] };
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function today() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function mmdd(ymd) { var p = ymd.split('-'); return +p[1] + '/' + +p[2]; }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function nowTs() { var t = Date.now(); if (t <= nowTs.last) t = nowTs.last + 1; nowTs.last = t; return t; }
+nowTs.last = 0;
+function $(id) { return document.getElementById(id); }
+
+function load() {
+  try { var raw = localStorage.getItem(KEY); if (raw) state = JSON.parse(raw); } catch (e) {}
+  if (!state || !Array.isArray(state.aircraft)) state = { version: 2, aircraft: [] };
+  state.aircraft.forEach(function (a) { if (!Array.isArray(a.orders)) a.orders = []; });
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch (e) { toast('保存失败：浏览器存储不可用'); }
+}
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 1800);
+}
+// Display order: least remaining-to-check first (stored order is left unchanged)
+function sortedAircraft() {
+  return state.aircraft.slice().sort(function (a, b) { return remaining(a) - remaining(b); });
+}
+function findAc(id) { return state.aircraft.find(function (a) { return a.id === id; }); }
+
+// In-page confirm / notice (the viewer blocks native alert/confirm/prompt)
+var msgResolve = null;
+var msgValidate = null;
+function ask(title, bodyHtml, opt) {
+  opt = opt || {};
+  msgValidate = opt.validate || null;
+  $('mErr').textContent = '';
+  $('mTitle').textContent = title;
+  $('mBody').innerHTML = bodyHtml;
+  $('mOk').textContent = opt.ok || '确认';
+  $('mOk').className = 'primary' + (opt.danger ? ' danger' : '');
+  $('mCancel').hidden = !!opt.noCancel;
+  $('dlgMsg').showModal();
+  return new Promise(function (res) { msgResolve = res; });
+}
+function tell(title, bodyHtml) { return ask(title, bodyHtml, { ok: '知道了', noCancel: true }); }
+function closeMsg(v) { $('dlgMsg').close(); if (msgResolve) { var r = msgResolve; msgResolve = null; r(v); } }
+$('mOk').onclick = function () {
+  var err = msgValidate && msgValidate();
+  if (err) { $('mErr').textContent = err; return; }
+  closeMsg(true);
+};
+$('mCancel').onclick = function () { closeMsg(false); };
+$('dlgMsg').addEventListener('cancel', function (e) { e.preventDefault(); closeMsg(false); });
+
+function render() {
+  var list = $('list');
+  var td = today();
+  if (!state.aircraft.length) {
+    list.innerHTML = '<div class="empty">还没有飞机<br>点右上角 ＋ 添加</div>';
+    return;
+  }
+  list.innerHTML = sortedAircraft().map(function (ac) {
+    var rem = remaining(ac);
+    var lvRem = levelHours(rem);
+    var levels = [lvRem];
+    var orders = ac.orders.map(function (o) {
+      var v = orderRemaining(ac, o, td), lv, txt;
+      if (o.type === 'date') {
+        lv = levelDays(v);
+        txt = v < 0 ? '过期 ' + (-v) + ' 天' : (v === 0 ? '今天到期' : v + ' 天 · ' + mmdd(o.due));
+      } else {
+        lv = levelHours(v);
+        txt = v < 0 ? '超限 ' + fmt(-v) : fmt(v);
+      }
+      levels.push(lv);
+      return '<div class="order"><span class="kind">' + (o.type === 'date' ? '日期' : '小时') + '</span>' +
+        '<span class="name">' + esc(o.name) + '</span>' +
+        '<span class="pill lv-' + lv + '">' + txt + '</span><span></span>' +
+        '<button class="ob" data-act="editorder" data-ac="' + ac.id + '" data-o="' + o.id + '">编辑</button>' +
+        '<button class="x" data-act="delorder" data-ac="' + ac.id + '" data-o="' + o.id + '" aria-label="删除指令单">×</button></div>';
+    }).join('');
+    var lv = worst(levels);
+    var remTxt = rem < 0 ? '超限 ' + fmt(-rem) : fmt(rem);
+    return '<div class="card ' + lv + '">' +
+      '<div class="head"><div class="reg">' + esc(ac.reg) + '</div>' +
+        '<button class="rem txt-' + lvRem + '" data-act="hist" data-ac="' + ac.id + '" title="点击查看或修改录入记录"><span class="rl">剩余</span>' + remTxt + '</button></div>' +
+      '<div class="entry">' +
+        '<input type="date" id="d-' + ac.id + '" value="' + td + '" max="' + td + '" aria-label="飞行日期">' +
+        '<input class="t tm" id="m-' + ac.id + '" inputmode="numeric" pattern="[0-9]*" placeholder="当天空中" aria-label="当天空中时间">' +
+        '<button class="primary" data-act="fly" data-ac="' + ac.id + '">录入</button>' +
+      '<div class="actions">' +
+        '<button class="ghost" data-act="addorder" data-ac="' + ac.id + '">＋ 指令单</button>' +
+        '<button class="ghost" data-act="hist" data-ac="' + ac.id + '">记录</button>' +
+        '<button class="ghost" data-act="reset" data-ac="' + ac.id + '">定检完成</button>' +
+        '<button class="ghost" data-act="edit" data-ac="' + ac.id + '">编辑</button>' +
+      '</div></div>' +
+      (orders ? '<div class="orders">' + orders + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+// Warnings if replacing `same` flights with a total of `m` minutes would reach or pass a limit
+function flightWarnings(ac, same, m, td) {
+  var warns = [];
+  var old = same.reduce(function (s, e) { return s + e.min; }, 0);
+  var after = remaining(ac) - (m - old);
+  if (after <= 0) warns.push('定检 ' + (after < 0 ? '超限 ' + fmt(-after) : '到限'));
+  ac.orders.forEach(function (o) {
+    if (o.type !== 'hours') return;
+    var oldO = same.reduce(function (s, e) { return s + (e.ts > o.ts ? e.min : 0); }, 0);
+    var a2 = orderRemaining(ac, o, td) - (m - oldO);
+    if (a2 <= 0) warns.push(esc(o.name) + ' ' + (a2 < 0 ? '超限 ' + fmt(-a2) : '到限'));
+  });
+  return warns;
+}
+
+$('list').addEventListener('click', function (ev) {
+  var b = ev.target.closest('button[data-act]');
+  if (!b) return;
+  var ac = findAc(b.dataset.ac);
+  if (!ac) return;
+  var act = b.dataset.act, td = today();
+
+  if (act === 'fly') {
+    var inp = $('m-' + ac.id);
+    var m = parseDur(inp.value, 1, 24 * 60);
+    if (m === null) { tell('时间无效', '请只输入数字，如 215 → 2:15。\n分钟不超过 59，最多 24 小时。'); return; }
+    var date = $('d-' + ac.id).value || td;
+    // Flights already entered for this date in the current check cycle
+    var k = lastSetIndex(ac);
+    var same = ac.events.filter(function (e, i) { return i > k && e.t === 'fly' && e.date === date; });
+    var old = same.reduce(function (s, e) { return s + e.min; }, 0);
+    if (same.length && old === m) { tell('无需修改', esc(ac.reg) + '　' + mmdd(date) + ' 已录入 ' + fmt(m) + '，和这次一样。'); return; }
+    var warns = flightWarnings(ac, same, m, td);
+    var body, title, okText;
+    if (same.length) {
+      title = '修改当天空中';
+      body = esc(ac.reg) + '　' + mmdd(date) + ' 已录入 <b>' + fmt(old) + '</b>\n是否修改为 <b>' + fmt(m) + '</b>？\n修改后按新值重新计算，不会重复扣减。';
+      okText = '修改';
+    } else {
+      title = '确认录入';
+      body = esc(ac.reg) + '　' + mmdd(date) + '\n空中时间 ' + fmt(m);
+      okText = '录入';
+    }
+    if (warns.length) { title = '警告：将到限 / 超限'; body = '<span class="warn">⚠ 录入后：\n' + warns.join('\n') + '</span>\n\n' + body; okText = '仍然' + okText; }
+    ask(title, body, { ok: okText, danger: !!warns.length }).then(function (yes) {
+      if (!yes) return;
+      if (same.length) {
+        // Edit in place (keeps the original order of events), merge extra entries for the same date
+        same[0].min = m;
+        ac.events = ac.events.filter(function (e) { return same.indexOf(e) <= 0; });
+        save(); render(); toast('已修改 ' + ac.reg + ' ' + mmdd(date) + ' 为 ' + fmt(m));
+      } else {
+        ac.events.push({ id: uid(), t: 'fly', min: m, date: date, ts: nowTs() });
+        save(); render(); toast('已录入 ' + ac.reg + ' ' + fmt(m));
+      }
+    });
+  } else if (act === 'reset') {
+    var resetMin = CHECK_MIN;
+    ask('定检完成', esc(ac.reg) + ' 已完成定检？\n剩余进定检时间重置为：' +
+      '<input id="mResetVal" class="tm" inputmode="numeric" pattern="[0-9]*" value="' + fmt(CHECK_MIN) + '" aria-label="重置后的剩余时间">' +
+      '<span class="hint">默认 100:00，可以改。只输数字，如 12000 → 120:00</span>', {
+      ok: '重置',
+      validate: function () {
+        var m = parseDur($('mResetVal').value, 1, 10000 * 60);
+        if (m === null) return '时间无效：只输数字，分钟不超过 59';
+        resetMin = m; return '';
+      }
+    }).then(function (yes) {
+      if (!yes) return;
+      ac.events.push({ id: uid(), t: 'set', kind: 'reset', min: resetMin, date: today(), ts: nowTs() });
+      save(); render(); toast(ac.reg + ' 已重置为 ' + fmt(resetMin));
+    });
+    $('mResetVal').select();
+  } else if (act === 'addorder') {
+    openOrderDialog(ac, null);
+  } else if (act === 'editorder') {
+    var eo = ac.orders.find(function (x) { return x.id === b.dataset.o; });
+    if (eo) openOrderDialog(ac, eo);
+  } else if (act === 'delorder') {
+    var o = ac.orders.find(function (x) { return x.id === b.dataset.o; });
+    if (!o) return;
+    ask('删除指令单', '"' + esc(o.name) + '" 已完成，删除？', { ok: '删除', danger: true }).then(function (yes) {
+      if (!yes) return;
+      ac.orders = ac.orders.filter(function (x) { return x !== o; });
+      save(); render(); toast('已删除');
+    });
+  } else if (act === 'hist') {
+    openHist(ac);
+  } else if (act === 'edit') {
+    openAcDialog(ac);
+  }
+});
+
+// Aircraft dialog
+var editing = null;
+function openAcDialog(ac) {
+  editing = ac || null;
+  $('dlgAcTitle').textContent = ac ? '编辑飞机' : '添加飞机';
+  $('fReg').value = ac ? ac.reg.replace(/^B-/, '') : '';
+  $('fRem').value = ac ? fmt(Math.max(0, remaining(ac))) : '100:00';
+  $('fDel').hidden = !ac;
+  $('fErr').textContent = '';
+  updateRegPreview();
+  $('dlgAc').showModal();
+}
+$('btnAdd').onclick = function () { openAcDialog(null); };
+$('fCancel').onclick = function () { $('dlgAc').close(); };
+$('fSave').onclick = function () {
+  var reg = normReg($('fReg').value);
+  if (!reg) { $('fErr').textContent = '请输入机号'; return; }
+  if (state.aircraft.some(function (a) { return a.reg === reg && a !== editing; })) { $('fErr').textContent = reg + ' 已存在'; return; }
+  var m = parseDur($('fRem').value, 0, 10000 * 60);
+  if (m === null) { $('fErr').textContent = '剩余时间无效：只输数字，分钟不超过 59'; return; }
+  if (editing) {
+    editing.reg = reg;
+    if (m !== remaining(editing)) editing.events.push({ id: uid(), t: 'set', kind: 'fix', min: m, date: today(), ts: nowTs() });
+  } else {
+    state.aircraft.push({ id: uid(), reg: reg, orders: [],
+      events: [{ id: uid(), t: 'set', kind: 'init', min: m, date: today(), ts: nowTs() }] });
+  }
+  save(); $('dlgAc').close(); render();
+};
+$('fDel').onclick = function () {
+  if (!editing) return;
+  var target = editing;
+  $('dlgAc').close();
+  ask('删除飞机', '删除 ' + esc(target.reg) + ' 及其全部记录和指令单？\n此操作无法撤销。', { ok: '删除', danger: true }).then(function (yes) {
+    if (!yes) return;
+    state.aircraft = state.aircraft.filter(function (a) { return a !== target; });
+    save(); render(); toast('已删除 ' + target.reg);
+  });
+};
+
+// Order dialog
+var orderAc = null, orderType = 'hours', orderEditing = null;
+function setOrderType(t) {
+  orderType = t;
+  document.querySelectorAll('#oSeg button').forEach(function (b) { b.classList.toggle('on', b.dataset.type === t); });
+  $('oHoursBox').hidden = t !== 'hours';
+  $('oDateBox').hidden = t !== 'date';
+}
+function openOrderDialog(ac, o) {
+  orderAc = ac; orderEditing = o || null;
+  $('oTitle').textContent = o ? '编辑指令单' : '添加指令单';
+  $('oSave').textContent = o ? '保存' : '添加';
+  $('oFor').textContent = ac.reg;
+  $('oName').value = o ? o.name : '';
+  $('oHours').value = o && o.type === 'hours' ? fmt(Math.max(0, orderRemaining(ac, o, today()))) : '';
+  $('oDate').value = o && o.type === 'date' ? o.due : '';
+  $('oDate').min = today(); $('oErr').textContent = '';
+  setOrderType(o ? o.type : 'hours');
+  $('dlgOrder').showModal();
+}
+$('oSeg').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-type]'); if (b) { e.preventDefault(); setOrderType(b.dataset.type); }
+});
+$('oCancel').onclick = function () { $('dlgOrder').close(); };
+$('oSave').onclick = function () {
+  var name = $('oName').value.trim();
+  if (!name) { $('oErr').textContent = '请输入指令单名称'; return; }
+  var m = null, d = null;
+  if (orderType === 'hours') {
+    m = parseDur($('oHours').value, 1, 10000 * 60);
+    if (m === null) { $('oErr').textContent = '剩余时间无效：如 2500 → 25:00，分钟不超过 59'; return; }
+  } else {
+    d = $('oDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { $('oErr').textContent = '请选择到期日期'; return; }
+  }
+  var o = orderEditing;
+  if (o) {
+    var keepHours = o.type === 'hours' && orderType === 'hours' && m === Math.max(0, orderRemaining(orderAc, o, today()));
+    o.name = name;
+    if (orderType === 'hours') {
+      // Changing the remaining value restarts the countdown from now
+      if (!keepHours) { o.min = m; o.ts = nowTs(); }
+      delete o.due;
+    } else { o.due = d; delete o.min; }
+    o.type = orderType;
+  } else {
+    o = { id: uid(), name: name, type: orderType, ts: nowTs() };
+    if (orderType === 'hours') o.min = m; else o.due = d;
+    orderAc.orders.push(o);
+  }
+  save(); $('dlgOrder').close(); render(); if (orderEditing) toast('已保存');
+};
+
+// History dialog
+var histAc = null;
+function openHist(ac) { histAc = ac; renderHist(); $('dlgHist').showModal(); }
+function renderHist() {
+  var ac = histAc, k = lastSetIndex(ac);
+  $('hTitle').textContent = ac.reg + ' 记录';
+  var rows = ac.events.map(function (e, i) { return { e: e, i: i }; }).reverse().slice(0, 100).map(function (x) {
+    var e = x.e, old = x.i < k ? ' old' : '';
+    if (e.t === 'set') {
+      var label = e.kind === 'reset' ? '定检完成' : (e.kind === 'fix' ? '修正剩余' : '初始');
+      return '<div class="rec' + old + '"><span class="set">' + esc(e.date) + ' ' + label + '</span><span class="set">= ' + fmt(e.min) + '</span></div>';
+    }
+    return '<div class="rec' + old + '"><span>' + esc(e.date) + ' 飞行</span><span>−' + fmt(e.min) +
+      ' <button class="ghost" data-ed="' + e.id + '">修改</button><button class="ghost danger" data-ev="' + e.id + '">删除</button></span></div>';
+  }).join('');
+  $('hList').innerHTML = rows || '<div class="rec">无记录</div>';
+}
+$('hList').addEventListener('click', function (ev) {
+  var be = ev.target.closest('button[data-ed]');
+  if (be) {
+    var acE = histAc, fe = acE.events.find(function (x) { return x.id === be.dataset.ed; });
+    if (!fe) return;
+    var newMin = fe.min;
+    $('dlgHist').close();
+    ask('修改飞行记录', esc(acE.reg) + '　' + mmdd(fe.date) + ' 原记录 ' + fmt(fe.min) + '\n改为：' +
+      '<input id="mFixVal" class="tm" inputmode="numeric" pattern="[0-9]*" value="' + fmt(fe.min) + '" aria-label="改正后的空中时间">' +
+      '<span class="hint">在原记录上修改，剩余时间按新值重新计算，不影响以后的录入。</span>', {
+      ok: '修改',
+      validate: function () {
+        var v = parseDur($('mFixVal').value, 1, 24 * 60);
+        if (v === null) return '时间无效：只输数字，分钟不超过 59，最多 24 小时';
+        newMin = v; return '';
+      }
+    }).then(function (yes) {
+      if (yes && newMin !== fe.min) {
+        var was = fe.min; fe.min = newMin;
+        save(); render(); toast(mmdd(fe.date) + ' ' + fmt(was) + ' → ' + fmt(newMin));
+      }
+      openHist(acE);
+    });
+    $('mFixVal').select();
+    return;
+  }
+  var b = ev.target.closest('button[data-ev]'); if (!b) return;
+  var ac = histAc;
+  var e = ac.events.find(function (x) { return x.id === b.dataset.ev; });
+  if (!e) return;
+  $('dlgHist').close();
+  ask('删除飞行记录', '删除 ' + esc(e.date) + ' 的 ' + fmt(e.min) + ' 飞行记录？', { ok: '删除', danger: true }).then(function (yes) {
+    if (yes) {
+      ac.events = ac.events.filter(function (x) { return x !== e; });
+      save(); render(); toast('已删除记录');
+    }
+    openHist(ac);
+  });
+});
+$('hClose').onclick = function () { $('dlgHist').close(); };
+
+// Copy helpers: clipboard API inside the click, then execCommand, then manual
+function copyNow(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallbackCopy(text); });
+    }
+  } catch (e) {}
+  return Promise.resolve(fallbackCopy(text));
+}
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta); return ok;
+}
+function showManualCopy(text) {
+  $('bTitle').textContent = '请手动复制';
+  $('bHint').textContent = '自动复制被浏览器拦截。长按下面的文字，全选后复制。';
+  $('bText').value = text; $('bRestore').hidden = true; $('bCopy').hidden = true; $('bErr').textContent = '';
+  $('dlgBackup').showModal();
+  $('bText').select();
+}
+$('btnCopy').onclick = function () {
+  if (!state.aircraft.length) { toast('还没有飞机'); return; }
+  var text = copyText(sortedAircraft(), today());
+  copyNow(text).then(function (ok) {
+    if (ok) toast('已复制 ' + state.aircraft.length + ' 架');
+    else showManualCopy(text);
+  });
+};
+
+// Backup
+$('btnBackup').onclick = function () {
+  $('bTitle').textContent = '备份 / 恢复';
+  $('bHint').textContent = '复制下面的文本保存到备忘录。恢复时粘贴文本并点"恢复"，会覆盖本机当前数据。';
+  $('bRestore').hidden = false; $('bCopy').hidden = false; $('bErr').textContent = '';
+  $('bText').value = JSON.stringify(state);
+  $('dlgBackup').showModal();
+};
+$('bClose').onclick = function () { $('dlgBackup').close(); };
+$('bCopy').onclick = function () {
+  copyNow($('bText').value).then(function (ok) {
+    if (ok) toast('已复制'); else { $('bText').select(); $('bErr').textContent = '自动复制被拦截，请长按手动复制'; }
+  });
+};
+$('bRestore').onclick = function () {
+  var s;
+  try { s = JSON.parse($('bText').value); } catch (e) { $('bErr').textContent = '文本格式不对'; return; }
+  if (!s || !Array.isArray(s.aircraft)) { $('bErr').textContent = '文本格式不对'; return; }
+  $('dlgBackup').close();
+  ask('恢复备份', '用这份备份覆盖本机当前数据？\n共 ' + s.aircraft.length + ' 架。', { ok: '覆盖', danger: true }).then(function (yes) {
+    if (!yes) return;
+    state = s; state.aircraft.forEach(function (a) { if (!Array.isArray(a.orders)) a.orders = []; });
+    save(); render(); toast('已恢复');
+  });
+};
+
+// Auto-format time fields while typing (digits only -> h:mm)
+document.addEventListener('input', function (e) {
+  var el = e.target;
+  if (el.classList && el.classList.contains('tm')) el.value = fmtTyping(el.value);
+});
+
+// Live preview of the full registration
+function updateRegPreview() {
+  var r = normReg($('fReg').value);
+  $('fRegPreview').textContent = r ? '显示为 ' + r : '';
+}
+$('fReg').addEventListener('input', updateRegPreview);
+
+// Refresh day-based values when the page comes back to the foreground
+document.addEventListener('visibilitychange', function () { if (!document.hidden) render(); });
+
+// Re-render once the local date changes (e.g. past midnight); skip while the user is typing in a card
+var renderedDay = today();
+var _render = render;
+render = function () { renderedDay = today(); _render(); };
+setInterval(function () {
+  if (today() === renderedDay) return;
+  var a = document.activeElement;
+  if (a && a.closest && a.closest('#list') && a.tagName === 'INPUT') return;
+  if (document.querySelector('dialog[open]')) return;
+  render();
+}, 30000);
+
+load(); render();
+</script>
+<script>
+// Offline support: register the service worker (needs https or localhost)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
