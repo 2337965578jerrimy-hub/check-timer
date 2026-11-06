@@ -5,7 +5,10 @@ var CACHE = 'check-timer-v1';
 var FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
+  // cache:'reload' = take the files from the server, not from the browser's own HTTP cache
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return c.addAll(FILES.map(function (f) { return new Request(f, { cache: 'reload' }); }));
+  }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {
@@ -23,7 +26,9 @@ self.addEventListener('fetch', function (e) {
     caches.open(CACHE).then(function (cache) {
       var key = req.mode === 'navigate' ? 'index.html' : req;
       return cache.match(key, { ignoreSearch: true }).then(function (hit) {
-        var update = fetch(req).then(function (res) {
+        // cache:'no-cache' = always ask the server (GitHub Pages lets browsers keep a copy for 10 min,
+        // which made a new upload take several launches to show up)
+        var update = fetch(req.url, { cache: 'no-cache' }).then(function (res) {
           if (res && res.ok) cache.put(key, res.clone());
           return res;
         }).catch(function () { return hit; });
