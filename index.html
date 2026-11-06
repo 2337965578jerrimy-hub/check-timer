@@ -290,12 +290,32 @@ function normReg(s) {
   return s ? 'B-' + s : '';
 }
 
+// Copy text: header + aircraft lines (caller passes them sorted), then open work orders
+// (hour-based by remaining ascending, then date-based by due date)
 function copyText(aircraft, today) {
   var p = today.split('-');
   var lines = [p[1] + '/' + p[2] + ' 定检剩余'];
   aircraft.forEach(function (ac) {
     var r = remaining(ac);
-    lines.push(ac.reg + '  ' + (r < 0 ? '超限 ' + fmt(-r) : fmt(r)));
+    lines.push(ac.reg + '  ' + (r < 0 ? '超限' + fmt(-r) : '剩余' + fmt(r)));
+  });
+  var hrs = [], dts = [];
+  aircraft.forEach(function (ac) {
+    ac.orders.forEach(function (o) {
+      var x = { ac: ac, o: o, v: orderRemaining(ac, o, today) };
+      (o.type === 'date' ? dts : hrs).push(x);
+    });
+  });
+  if (!hrs.length && !dts.length) return lines.join('\n');
+  hrs.sort(function (a, b) { return a.v - b.v; });
+  dts.sort(function (a, b) { return a.o.due < b.o.due ? -1 : (a.o.due > b.o.due ? 1 : 0); });
+  lines.push('—————————', '未完成生产指令单');
+  hrs.forEach(function (x) {
+    lines.push(x.ac.reg + '  ' + x.o.name + (x.v < 0 ? '超限' + fmt(-x.v) : fmt(x.v)));
+  });
+  dts.forEach(function (x) {
+    var d = x.o.due.split('-');
+    lines.push(x.ac.reg + '  ' + x.o.name + (+d[1]) + '月' + (+d[2]) + '日前');
   });
   return lines.join('\n');
 }
